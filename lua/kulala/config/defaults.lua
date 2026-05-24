@@ -102,7 +102,7 @@ local M = {
   ui = {
     -- display mode: possible values: "split", "float"
     display_mode = "split",
-    -- split direction: possible values: "vertical", "horizontal"
+    -- split direction: possible values: "vertical", "horizontal", fun(): "below"|"right"
     split_direction = "vertical",
     -- window options to override win_config: width/height/split/vertical.., buffer/window options
     win_opts = { bo = {}, wo = {} }, ---@type kulala.ui.win_config
