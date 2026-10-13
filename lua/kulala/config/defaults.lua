@@ -4,10 +4,15 @@ require("kulala.types")
 local M = {
   kulala_core = {
     -- Optional path to the kulala-core executable
-    -- (https://github.com/mistweaverco/kulala-core).
+    -- (https://github.com/dont-be-evil-company/kulala-core).
     -- When set, this path is used exclusively.
     -- When nil (default), auto-download and
-    -- use kulala-core from GitHub releases based on the user's OS and architecture.
+    -- use kulala-core from https://core.kulala.app based on the user's OS and architecture.
+    -- A missing or outdated binary asks for a license token on first use
+    -- (an HTTP buffer or a command that needs kulala-core), unless
+    -- KULALA_CORE_LICENSE_TOKEN is set.
+    -- A valid token is stored in the kulala-core data directory and reused
+    -- across updates. It is removed only when the download server rejects it.
     path = nil,
     -- Subprocess timeout (ms) for kulala-core.
     -- Default is 60000 (1 minute).
@@ -23,7 +28,7 @@ local M = {
     -- - Windows: %APPDATA%\kulala-core
     data_dir = nil,
     -- Optional override for download url
-    download_url = "https://github.com/mistweaverco/kulala-core/releases/download/%s/%s",
+    download_url = "https://core.kulala.app/releases/%s/%s",
     download_tool = "curl", -- or "wget"
   },
   -- Restore request history and UI after sourcing a vim session (:h 'sessionoptions' globals).

@@ -387,6 +387,27 @@ local function ws_live_body_and_ft()
   return WEBSOCKET.response.body or "", get_ft_from_kulala_core(WEBSOCKET.response)
 end
 
+---Update the live keep-alive HTTP body in place (no full view re-open).
+M.refresh_http_stream_body_if_visible = function()
+  local HTTP_STREAM = require("kulala.cmd.http_stream")
+  local response = HTTP_STREAM.response
+  if not response then return end
+  if CONFIG.get().default_view ~= "body" then return end
+  local current = get_current_response()
+  if current.id ~= response.id then return end
+  local buf = get_kulala_buffer()
+  if not buf then return end
+  vim.bo[buf].modifiable = true
+  vim.bo[buf].readonly = false
+  set_buffer_contents(buf, response.body or "", "text")
+  REPORT.set_response_summary(buf)
+  lock_buffer_readonly(buf)
+  local win = get_kulala_window()
+  if win and vim.api.nvim_win_is_valid(win) then
+    pcall(vim.api.nvim_win_set_cursor, win, { vim.api.nvim_buf_line_count(buf), 0 })
+  end
+end
+
 ---Update the live WebSocket body in place (no full view re-open).
 M.refresh_ws_body_if_visible = function()
   if not ws_prompt_active() then return end
@@ -794,45 +815,49 @@ end
 M.copy = function()
   local Bridge = require("kulala.cmd.kulala_core_bridge")
 
-  if not Bridge.enabled() then return Logger.error("kulala-core is not available") end
+  Bridge.guard(function()
+    local curl, err = Bridge.to_curl_at_cursor(nil, GLOBALS.NAME .. "/" .. GLOBALS.VERSION)
+    if not curl then
+      if err and Bridge.is_preview_unsupported_err(err) then return Logger.warn(err) end
+      return Logger.error(err or "Failed to copy request as curl")
+    end
 
-  local curl, err = Bridge.to_curl_at_cursor(nil, GLOBALS.NAME .. "/" .. GLOBALS.VERSION)
-  if not curl then
-    if err and Bridge.is_preview_unsupported_err(err) then return Logger.warn(err) end
-    return Logger.error(err or "Failed to copy request as curl")
-  end
-
-  vim.fn.setreg("+", curl)
-  Logger.info("Copied to clipboard")
+    vim.fn.setreg("+", curl)
+    Logger.info("Copied to clipboard")
+  end)
 end
 
 M.from_curl = function()
   local clipboard = vim.fn.getreg("+")
   local Bridge = require("kulala.cmd.kulala_core_bridge")
-  local lines, err = Bridge.from_curl(clipboard)
-  if not lines then return Logger.error(err or "kulala-core from_curl failed") end
-  vim.api.nvim_put(lines, "l", false, false)
+  Bridge.guard(function()
+    local lines, err = Bridge.from_curl(clipboard)
+    if not lines then return Logger.error(err or "kulala-core from_curl failed") end
+    vim.api.nvim_put(lines, "l", false, false)
+  end)
 end
 
 M.inspect = function()
   local Bridge = require("kulala.cmd.kulala_core_bridge")
-  local content, err = Bridge.inspect_request_at_cursor()
-  if not content then
-    if err and Bridge.is_preview_unsupported_err(err) then return Logger.warn(err) end
-    return Logger.error(err or "kulala-core inspect_request failed")
-  end
+  Bridge.guard(function()
+    local content, err = Bridge.inspect_request_at_cursor()
+    if not content then
+      if err and Bridge.is_preview_unsupported_err(err) then return Logger.warn(err) end
+      return Logger.error(err or "kulala-core inspect_request failed")
+    end
 
-  if not content or #content == 0 then return end
+    if not content or #content == 0 then return end
 
-  Float.create(content, {
-    name = "kulala://inspect",
-    ft = "http",
-    relative = "cursor",
-    focusable = true,
-    border = "rounded",
-    auto_size = true,
-    close_keymaps = { "q", "<esc>" },
-  })
+    Float.create(content, {
+      name = "kulala://inspect",
+      ft = "http",
+      relative = "cursor",
+      focusable = true,
+      border = "rounded",
+      auto_size = true,
+      close_keymaps = { "q", "<esc>" },
+    })
+  end)
 end
 
 M.get_kulala_buffer = get_kulala_buffer
